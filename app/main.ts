@@ -1,4 +1,5 @@
 import { createInterface } from "readline";
+import os from "os";
 
 const rl = createInterface({
   input: process.stdin,
@@ -8,7 +9,8 @@ const rl = createInterface({
 
 type Command = {
   name: string;
-  args: string[];
+  minArgs: number;
+  maxArgs: number | null;
 }
 
 type ParsedCommand = {
@@ -17,11 +19,11 @@ type ParsedCommand = {
 }
 
 const commands: Command[] = [
-  { name: "exit", args: [] },
-  { name: "echo", args: ["text"] },
-  { name: "type", args: ["command"] },
-  { name: "pwd", args: [] },
-  { name: "cd", args: ["directory"] },
+  { name: "exit", minArgs: 0, maxArgs: 0 },
+  { name: "echo", minArgs: 1, maxArgs: null },
+  { name: "type", minArgs: 1, maxArgs: 1 },
+  { name: "pwd", minArgs: 0, maxArgs: 0 },
+  { name: "cd", minArgs: 0, maxArgs: 1 },
 ];
 
 rl.prompt();
@@ -29,7 +31,12 @@ rl.prompt();
 rl.on("line", (line) => {
 
   // Command and arguments parsing
-  const { command, args } = handleLineParsing(line);
+  const { command, args } = parseCommandLine(line);
+
+  if (!command) {
+    rl.prompt();
+    return;
+  }
   
   // Handle number of arguments for builtin commands
   if (!handleArgumentNumber(command, args)) {
@@ -72,12 +79,11 @@ function handleEchoCommand(args: string[]): void {
 
 function handleCdCommand(args: string[]): void {
   try {
-    // Handle ~ as home directory
-    if (args[0] === "~") {
-      process.chdir(require("os").homedir());
-      return;
+    let path = args[0] || os.homedir();
+    if (path.startsWith("~")) {
+      path = path.replace("~", os.homedir());
     }
-    process.chdir(args[0]);
+    process.chdir(path);
   } catch (err) {
     console.log(`cd: ${args[0]}: No such file or directory`);
   }
@@ -113,25 +119,22 @@ function handleTypeCommand(args: string[]): void {
 
 function handleArgumentNumber(command: string, args: string[]): boolean {
   // Tell if builtin command has too many or too few arguments
-
-  if (!commands.some((cmd) => cmd.name === command)) {return true;} // Not a builtin command, let the OS handle it
-  if (command === "echo"){return true;} // Echo can take any number of arguments
-
   const cmd = commands.find((cmd) => cmd.name === command);
-  if (!cmd) {return false;}
 
-  if (args.length < cmd.args.length) {
+  if (!cmd) return true; // Not a builtin command, let the OS handle it
+
+  if (args.length < cmd.minArgs) {
     console.log(`${command}: too few arguments`);
     return false;
   }
-  if (args.length > cmd.args.length) {
+  if (cmd.maxArgs !== null && args.length > cmd.maxArgs) {
     console.log(`${command}: too many arguments`);
     return false;
   }
   return true;
 }
 
-function handleLineParsing(line: string): ParsedCommand {
+function parseCommandLine(line: string): ParsedCommand {
   const tokens: string[] = [];
   let current = "";
 
@@ -141,7 +144,7 @@ function handleLineParsing(line: string): ParsedCommand {
   for (const char of line.trim()) {
 
     // Handle escape character outside simple quotes
-    if (quoteMode !== "single") {
+    if (quoteMode === "single") {
       if (escaped) {
         current += char;
         escaped = false;
@@ -198,7 +201,7 @@ function handleLineParsing(line: string): ParsedCommand {
     tokens.push(current);
   }
 
-  return { command: tokens[0], args: tokens.slice(1) };
+  return { command: tokens[0] ?? "", args: tokens.slice(1) };
 }
 
 function handleDoubleQuote(char: string): string {
