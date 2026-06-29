@@ -25,7 +25,12 @@ rl.on("line", (command) => {
       handleTypeCommand(args);
       break;
     default:
-      console.log(`${args[0]}: command not found`);
+      // Not builtin command
+      try {
+        require("child_process").execFileSync(args[0], args.slice(1), { stdio: "inherit" });
+      } catch (err) {
+        console.log(`${args[0]}: command not found`);
+      }
   }
 
   rl.prompt();
