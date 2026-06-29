@@ -11,6 +11,11 @@ type Command = {
   args: string[];
 }
 
+type ParsedCommand = {
+  command: string;
+  args: string[];
+}
+
 const commands: Command[] = [
   { name: "exit", args: [] },
   { name: "echo", args: ["text"] },
@@ -24,9 +29,7 @@ rl.prompt();
 rl.on("line", (line) => {
 
   // Command and arguments parsing
-  const command: string = line.trim().split(/\s+/, 1)[0];
-
-  const args: string[] = handleArgumentsParsing(line, command);
+  const { command, args } = handleLineParsing(line);
   
   // Handle number of arguments for builtin commands
   if (!handleArgumentNumber(command, args)) {
@@ -128,16 +131,14 @@ function handleArgumentNumber(command: string, args: string[]): boolean {
   return true;
 }
 
-function handleArgumentsParsing(line: string, command: string): string[] {
-  const args: string[] = [];
+function handleLineParsing(line: string): ParsedCommand {
+  const tokens: string[] = [];
   let current = "";
 
   let quoteMode: "none" | "single" | "double" = "none";
   let escaped = false;
 
-  const input = line.slice(command.length);
-
-  for (const char of input) {
+  for (const char of line.trim()) {
 
     // Handle escape character outside simple quotes
     if (quoteMode !== "single") {
@@ -180,7 +181,7 @@ function handleArgumentsParsing(line: string, command: string): string[] {
     // Outside of quotes, split on whitespace
     if (/\s/.test(char)) {
       if (current) {
-        args.push(current);
+        tokens.push(current);
         current = "";
       }
       continue;
@@ -194,10 +195,10 @@ function handleArgumentsParsing(line: string, command: string): string[] {
   }
 
   if (current) {
-    args.push(current);
+    tokens.push(current);
   }
 
-  return args;
+  return { command: tokens[0], args: tokens.slice(1) };
 }
 
 function handleDoubleQuote(char: string): string {
