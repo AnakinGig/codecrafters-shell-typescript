@@ -43,7 +43,8 @@ function handleTypeCommand(args: string[]): void {
         for (const dir of pathDirs) {
           const commandPath: string = `${dir}/${args[1]}`;
           try {
-            require("fs").accessSync(commandPath);
+            // Check if the command exists in this directory and is executable
+            require("fs").accessSync(commandPath, require("fs").constants.X_OK);
             console.log(`${args[1]} is ${commandPath}`);
             found = true;
             break;
