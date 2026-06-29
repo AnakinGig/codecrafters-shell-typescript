@@ -24,13 +24,15 @@ rl.prompt();
 rl.on("line", (line) => {
 
   const command: string = line.trim().split(" ")[0];
-  const args: string[] = line.trim().split(" ").slice(1);
 
-  /*
+  const args: string[] = [...line.matchAll(/'([^']*)'|(\S+)/g)]
+    .slice(1)
+    .map(match => match[1] ?? match[2]);
+
   if (!handleArguments(command, args)) {
     rl.prompt();
     return;
-  }*/
+  }
 
   switch (command) {
     case "exit":
