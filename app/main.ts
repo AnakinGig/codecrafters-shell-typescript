@@ -23,12 +23,12 @@ rl.prompt();
 
 rl.on("line", (line) => {
 
-  const command: string = line.trim().split(" ")[0];
+  const command: string = line.trim().split(/\s+/, 1)[0];
 
   const args: string[] = [];
   let current = "";
 
-  for (const match of line.matchAll(/'([^']*)'|[^'\s]+|\s+/g)) {
+  for (const match of line.slice(command.length).matchAll(/'([^']*)'|[^'\s]+|\s+/g)) {
     const token = match[0];
 
     if (/^\s+$/.test(token)) {
