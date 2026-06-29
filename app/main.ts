@@ -25,9 +25,27 @@ rl.on("line", (line) => {
 
   const command: string = line.trim().split(" ")[0];
 
-  const args: string[] = [...line.matchAll(/'([^']*)'|(\S+)/g)]
-    .slice(1)
-    .map(match => match[1] ?? match[2]);
+  const args: string[] = [];
+  let current = "";
+
+  for (const match of line.matchAll(/'([^']*)'|[^'\s]+|\s+/g)) {
+    const token = match[0];
+
+    if (/^\s+$/.test(token)) {
+      if (current !== "") {
+        args.push(current);
+        current = "";
+      }
+    } else if (token.startsWith("'")) {
+      current += token.slice(1, -1); // enlève les quotes
+    } else {
+      current += token;
+    }
+  }
+
+  if (current !== "") {
+    args.push(current);
+  }
 
   if (!handleArguments(command, args)) {
     rl.prompt();
