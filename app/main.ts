@@ -22,17 +22,7 @@ rl.on("line", (command) => {
       console.log(args.slice(1).join(" "));
       break;
     case "type":
-      if (args.length === 2){
-        if (commands.includes(args[1])) {
-          console.log(`${args[1]} is a shell builtin`)
-        }
-        else {
-          console.log(`${args[1]}: not found`);
-        }
-      }
-      else {
-        console.log("type: arguments error");
-      }
+      handleTypeCommand(args);
       break;
     default:
       console.log(`${args[0]}: command not found`);
@@ -40,3 +30,36 @@ rl.on("line", (command) => {
 
   rl.prompt();
 });
+
+function handleTypeCommand(args: string[]): void {
+  if (args.length === 2){
+    if (commands.includes(args[1])) {
+      console.log(`${args[1]} is a shell builtin`)
+    }
+    else {
+      if (process.env.PATH) {
+        const pathDirs: string[] = process.env.PATH.split(":");
+        let found: boolean = false;
+        for (const dir of pathDirs) {
+          const commandPath: string = `${dir}/${args[1]}`;
+          try {
+            require("fs").accessSync(commandPath);
+            console.log(`${args[1]} is ${commandPath}`);
+            found = true;
+            break;
+          } catch (err) {
+            // command not found in this directory, continue searching
+          }
+        }
+        if (!found) {
+          console.log(`${args[1]}: not found`);
+        }
+      } else {
+        console.log("PATH environment variable is not set");
+      }
+    }
+  }
+  else {
+    console.log("type: arguments error");
+  }
+}
