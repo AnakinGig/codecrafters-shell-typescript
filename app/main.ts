@@ -109,6 +109,9 @@ function handleTypeCommand(args: string[]): void {
 
 function handleArguments(command: string, args: string[]): boolean {
   // Tell if command has too many or too few arguments
+
+  if (command === "echo"){return true} // echo can take any number of arguments
+  
   const cmd = commands.find((cmd) => cmd.name === command);
   if (!cmd) {
     return false;
