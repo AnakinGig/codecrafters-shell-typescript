@@ -140,7 +140,7 @@ function handleArgumentsParsing(line: string, command: string): string[] {
   for (const char of input) {
 
     // Handle escape character
-    if (escaped) {
+    if (escaped && quoteMode !== "single") {
       current += char;
       escaped = false;
       continue;
