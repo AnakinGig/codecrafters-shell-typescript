@@ -6,7 +6,7 @@ const rl = createInterface({
   prompt: "$ ",
 });
 
-const commands: string[] = ["echo", "exit", "type"];
+const commands: string[] = ["echo", "exit", "type", "pwd"];
 
 rl.prompt();
 
@@ -23,6 +23,9 @@ rl.on("line", (command) => {
       break;
     case "type":
       handleTypeCommand(args);
+      break;
+    case "pwd":
+      console.log(process.cwd());
       break;
     default:
       // Not builtin command
