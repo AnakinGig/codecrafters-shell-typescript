@@ -129,12 +129,14 @@ function handleTypeCommand(args: string[]): void {
 }
 
 function handleArguments(command: string, args: string[]): boolean {
-  // Tell if command has too many or too few arguments
+  // Tell if builtin command has too many or too few arguments
 
+  if (!commands.some((cmd) => cmd.name === command)) {return true;} // Not a builtin command, let the OS handle it
   if (command === "echo"){return true;} // echo can take any number of arguments
 
   const cmd = commands.find((cmd) => cmd.name === command);
   if (!cmd) {return false;}
+  
   if (args.length < cmd.args.length) {
     console.log(`${command}: too few arguments`);
     return false;
