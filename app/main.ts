@@ -26,28 +26,8 @@ rl.on("line", (line) => {
   // Command and arguments parsing
   const command: string = line.trim().split(/\s+/, 1)[0];
 
-  const args: string[] = [];
-  let current = "";
-
-  for (const match of line.slice(command.length).matchAll(/'([^']*)'|[^'\s]+|\s+/g)) {
-    const token = match[0];
-
-    if (/^\s+$/.test(token)) {
-      if (current !== "") {
-        args.push(current);
-        current = "";
-      }
-    } else if (token.startsWith("'")) {
-      current += token.slice(1, -1); // enlève les quotes
-    } else {
-      current += token;
-    }
-  }
-
-  if (current !== "") {
-    args.push(current);
-  }
-
+  const args: string[] = handleArgumentsParsing(line, command);
+  
   // Handle number of arguments for builtin commands
   if (!handleArguments(command, args)) {
     rl.prompt();
@@ -136,7 +116,7 @@ function handleArguments(command: string, args: string[]): boolean {
 
   const cmd = commands.find((cmd) => cmd.name === command);
   if (!cmd) {return false;}
-  
+
   if (args.length < cmd.args.length) {
     console.log(`${command}: too few arguments`);
     return false;
@@ -146,4 +126,71 @@ function handleArguments(command: string, args: string[]): boolean {
     return false;
   }
   return true;
+}
+
+function handleArgumentsParsing(line: string, command: string): string[] {
+  const args: string[] = [];
+  let current = "";
+
+  let quoteMode: "none" | "single" | "double" = "none";
+
+  const input = line.slice(command.length);
+
+  for (const char of input) {
+
+    // Entrée / sortie des simples quotes
+    if (char === "'" && quoteMode !== "double") {
+      quoteMode =
+        quoteMode === "single" ? "none" : "single";
+      continue;
+    }
+
+    // Entrée / sortie des doubles quotes
+    if (char === '"' && quoteMode !== "single") {
+      quoteMode =
+        quoteMode === "double" ? "none" : "double";
+      continue;
+    }
+
+
+    // Plus tard : règles spécifiques aux doubles quotes
+    if (quoteMode === "double") {
+      current += handleDoubleQuote(char);
+      continue;
+    }
+
+
+    // Plus tard : règles spécifiques aux simples quotes
+    if (quoteMode === "single") {
+      current += handleSingleQuote(char);
+      continue;
+    }
+
+
+    // Hors quotes
+    if (/\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+
+  if (current) {
+    args.push(current);
+  }
+
+  return args;
+}
+
+function handleDoubleQuote(char: string): string {
+  return char; // TODO later
+}
+
+function handleSingleQuote(char: string): string {
+  return char; // TODO later
 }
