@@ -6,20 +6,38 @@ const rl = createInterface({
   prompt: "$ ",
 });
 
-const commands: string[] = ["echo", "exit", "type", "pwd", "cd"];
+type Command = {
+  name: string;
+  args: string[];
+}
+
+const commands: Command[] = [
+  { name: "exit", args: [] },
+  { name: "echo", args: ["text"] },
+  { name: "type", args: ["command"] },
+  { name: "pwd", args: [] },
+  { name: "cd", args: ["directory"] },
+];
 
 rl.prompt();
 
-rl.on("line", (command) => {
+rl.on("line", (line) => {
 
-  const args: string[] = command.trim().split(" ");
+  const command: string = line.trim().split(" ")[0];
+  const args: string[] = line.trim().split(" ").slice(1);
 
-  switch (args[0]) {
+  /*
+  if (!handleArguments(command, args)) {
+    rl.prompt();
+    return;
+  }*/
+
+  switch (command) {
     case "exit":
       rl.close();
       return;
     case "echo":
-      console.log(args.slice(1).join(" "));
+      handleEchoCommand(args);
       break;
     case "type":
       handleTypeCommand(args);
@@ -33,44 +51,30 @@ rl.on("line", (command) => {
     default:
       // Not builtin command
       try {
-        require("child_process").execFileSync(args[0], args.slice(1), { stdio: "inherit" });
+        require("child_process").execFileSync(command, args, { stdio: "inherit" });
       } catch (err) {
-        console.log(`${args[0]}: command not found`);
+        console.log(`${command}: command not found`);
       }
   }
 
   rl.prompt();
 });
 
-function handleCdCommand(args: string[]): void {
-  if (args.length < 2) {
-    console.log("cd: too few arguments");
-    return;
-  }
-  if (args.length > 2) {
-    console.log("cd: too many arguments");
-    return;
-  }
+function handleEchoCommand(args: string[]): void {
+  console.log(args.join(" "));
+}
 
+function handleCdCommand(args: string[]): void {
   try {
-    process.chdir(args[1]);
+    process.chdir(args[0]);
   } catch (err) {
-    console.log(`cd: ${args[1]}: No such file or directory`);
+    console.log(`cd: ${args[0]}: No such file or directory`);
   }
 }
 
 function handleTypeCommand(args: string[]): void {
-  if (args.length < 2){
-    console.log("type: too few arguments");
-    return;
-  }
-  if (args.length > 2) {
-    console.log("type: too many arguments");
-    return;
-  }
-
-  if (commands.includes(args[1])) {
-    console.log(`${args[1]} is a shell builtin`)
+  if (commands.some((cmd) => cmd.name === args[0])) {
+    console.log(`${args[0]} is a shell builtin`)
     return;
   }
   if (!process.env.PATH) {
@@ -79,19 +83,36 @@ function handleTypeCommand(args: string[]): void {
   }
 
   const pathDirs: string[] = process.env.PATH.split(":");
-    let found: boolean = false;
-    for (const dir of pathDirs) {
-      const commandPath: string = `${dir}/${args[1]}`;
-      try {
-        require("fs").accessSync(commandPath, require("fs").constants.X_OK);
-        console.log(`${args[1]} is ${commandPath}`);
-        found = true;
-        break;
-      } catch (err) {
-        // command not found in this directory, continue searching
-      }
+  let found: boolean = false;
+  for (const dir of pathDirs) {
+    const commandPath: string = `${dir}/${args[0]}`;
+    try {
+      require("fs").accessSync(commandPath, require("fs").constants.X_OK);
+      console.log(`${args[0]} is ${commandPath}`);
+      found = true;
+      break;
+    } catch (err) {
+      // command not found in this directory, continue searching
     }
-    if (!found) {
-      console.log(`${args[1]}: not found`);
-    }
+  }
+  if (!found) {
+    console.log(`${args[0]}: not found`);
+  }
+}
+
+function handleArguments(command: string, args: string[]): boolean {
+  // Tell if command has too many or too few arguments
+  const cmd = commands.find((cmd) => cmd.name === command);
+  if (!cmd) {
+    return false;
+  }
+  if (args.length < cmd.args.length) {
+    console.log(`${command}: too few arguments`);
+    return false;
+  }
+  if (args.length > cmd.args.length) {
+    console.log(`${command}: too many arguments`);
+    return false;
+  }
+  return true;
 }
