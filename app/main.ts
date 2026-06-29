@@ -9,21 +9,19 @@ const rl = createInterface({
 rl.prompt();
 
 rl.on("line", (command) => {
-  handleCommands(command);
-  rl.prompt();
-});
 
-function handleCommands(command: string) {
- const args: string[] = command.trim().split(" ");
+  const args: string[] = command.trim().split(" ");
 
   switch (args[0]) {
     case "exit":
       rl.close();
-      break;
+      return;
     case "echo":
       console.log(args.slice(1).join(" "));
       break;
     default:
-      console.log(`${command}: command not found`);
+      console.log(`${args[0]}: command not found`);
   }
-}
+
+  rl.prompt();
+});
