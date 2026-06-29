@@ -6,7 +6,7 @@ const rl = createInterface({
   prompt: "$ ",
 });
 
-const commands: string[] = ["echo", "exit", "type", "pwd"];
+const commands: string[] = ["echo", "exit", "type", "pwd", "cd"];
 
 rl.prompt();
 
@@ -27,6 +27,9 @@ rl.on("line", (command) => {
     case "pwd":
       console.log(process.cwd());
       break;
+    case "cd":
+      handleCdCommand(args);
+      break;
     default:
       // Not builtin command
       try {
@@ -38,6 +41,23 @@ rl.on("line", (command) => {
 
   rl.prompt();
 });
+
+function handleCdCommand(args: string[]): void {
+  if (args.length < 2) {
+    console.log("cd: too few arguments");
+    return;
+  }
+  if (args.length > 2) {
+    console.log("cd: too many arguments");
+    return;
+  }
+
+  try {
+    process.chdir(args[1]);
+  } catch (err) {
+    console.log(`cd: ${args[1]}: No such file or directory`);
+  }
+}
 
 function handleTypeCommand(args: string[]): void {
   if (args.length < 2){
