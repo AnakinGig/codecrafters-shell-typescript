@@ -23,6 +23,7 @@ rl.prompt();
 
 rl.on("line", (line) => {
 
+  // Command and arguments parsing
   const command: string = line.trim().split(/\s+/, 1)[0];
 
   const args: string[] = [];
@@ -47,11 +48,13 @@ rl.on("line", (line) => {
     args.push(current);
   }
 
+  // Handle number of arguments for builtin commands
   if (!handleArguments(command, args)) {
     rl.prompt();
     return;
   }
 
+  // Handle builtin commands
   switch (command) {
     case "exit":
       rl.close();
