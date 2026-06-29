@@ -29,7 +29,7 @@ rl.on("line", (line) => {
   const args: string[] = handleArgumentsParsing(line, command);
   
   // Handle number of arguments for builtin commands
-  if (!handleArguments(command, args)) {
+  if (!handleArgumentNumber(command, args)) {
     rl.prompt();
     return;
   }
@@ -108,11 +108,11 @@ function handleTypeCommand(args: string[]): void {
   }
 }
 
-function handleArguments(command: string, args: string[]): boolean {
+function handleArgumentNumber(command: string, args: string[]): boolean {
   // Tell if builtin command has too many or too few arguments
 
   if (!commands.some((cmd) => cmd.name === command)) {return true;} // Not a builtin command, let the OS handle it
-  if (command === "echo"){return true;} // echo can take any number of arguments
+  if (command === "echo"){return true;} // Echo can take any number of arguments
 
   const cmd = commands.find((cmd) => cmd.name === command);
   if (!cmd) {return false;}
@@ -133,41 +133,49 @@ function handleArgumentsParsing(line: string, command: string): string[] {
   let current = "";
 
   let quoteMode: "none" | "single" | "double" = "none";
+  let escaped = false;
 
   const input = line.slice(command.length);
 
   for (const char of input) {
 
-    // Entrée / sortie des simples quotes
+    // Handle escape character
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    // Handle single quotes
     if (char === "'" && quoteMode !== "double") {
-      quoteMode =
-        quoteMode === "single" ? "none" : "single";
+      quoteMode = quoteMode === "single" ? "none" : "single";
       continue;
     }
 
-    // Entrée / sortie des doubles quotes
+    // Handle double quotes
     if (char === '"' && quoteMode !== "single") {
-      quoteMode =
-        quoteMode === "double" ? "none" : "double";
+      quoteMode = quoteMode === "double" ? "none" : "double";
       continue;
     }
 
-
-    // Plus tard : règles spécifiques aux doubles quotes
+    // Process character within double quotes
     if (quoteMode === "double") {
       current += handleDoubleQuote(char);
       continue;
     }
 
-
-    // Plus tard : règles spécifiques aux simples quotes
+    // Process character within single quotes
     if (quoteMode === "single") {
       current += handleSingleQuote(char);
       continue;
     }
 
-
-    // Hors quotes
+    // Outside of quotes, split on whitespace
     if (/\s/.test(char)) {
       if (current) {
         args.push(current);
@@ -179,6 +187,9 @@ function handleArgumentsParsing(line: string, command: string): string[] {
     current += char;
   }
 
+  if (escaped) {
+    current += "\\";
+  }
 
   if (current) {
     args.push(current);
