@@ -66,6 +66,11 @@ function handleEchoCommand(args: string[]): void {
 
 function handleCdCommand(args: string[]): void {
   try {
+    // Handle ~ as home directory
+    if (args[0] === "~") {
+      process.chdir(require("os").homedir());
+      return;
+    }
     process.chdir(args[0]);
   } catch (err) {
     console.log(`cd: ${args[0]}: No such file or directory`);
