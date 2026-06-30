@@ -39,11 +39,31 @@ export function removeJob(id: number): void {
   if (index !== -1) jobs.splice(index, 1);
 }
 
-// Finds all "done" jobs, prints a Done line for each, and removes them.
+// Checks the actual OS-level process state, not just the (possibly delayed)
+// "exit" event, to avoid race conditions when reaping right after a command.
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0); // signal 0 = no-op, just checks existence/permission
+    return true;
+  } catch {
+    return false; // ESRCH (no such process) or EPERM means it's gone (or inaccessible)
+  }
+}
+
+function refreshJobStatuses(): void {
+  for (const job of jobs) {
+    if (job.status === "running" && !isProcessAlive(job.pid)) {
+      job.status = "done";
+    }
+  }
+}
+
 export function reapDoneJobs(): void {
+  refreshJobStatuses();
+
   const doneJobs = jobs.filter(j => j.status === "done");
 
-  doneJobs.forEach((job, index) => {
+  doneJobs.forEach(job => {
     const isCurrent = jobs[jobs.length - 1]?.id === job.id;
     const isPrevious = jobs[jobs.length - 2]?.id === job.id;
     const marker = isCurrent ? "+" : isPrevious ? "-" : " ";
