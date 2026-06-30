@@ -217,8 +217,12 @@ function parseCommandLine(line: string): ParsedCommand {
   let quoteMode: "none" | "single" | "double" = "none";
   let escaped = false;
   let redirectType: "stdout" | "stderr" | null = null;
+  let redirectAppend = false;
 
-  for (const char of line.trim()) {
+  const trimmed = line.trim();
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i];
 
     // Handle escape character outside of any quotes
     if (quoteMode === "none") {
@@ -250,7 +254,7 @@ function parseCommandLine(line: string): ParsedCommand {
       }
     }
 
-    // Handle single quotes (everything inside is literal — no escaping at all)
+    // Handle single quotes
     if (char === "'" && quoteMode !== "double") {
       quoteMode = quoteMode === "single" ? "none" : "single";
       continue;
@@ -273,6 +277,15 @@ function parseCommandLine(line: string): ParsedCommand {
         tokens.push(current);
         current = "";
       }
+
+      // Check for >> (append)
+      if (trimmed[i + 1] === ">") {
+        redirectAppend = true;
+        i++; // skip the second '>'
+      } else {
+        redirectAppend = false;
+      }
+
       redirectType = fd;
       continue;
     }
@@ -280,8 +293,9 @@ function parseCommandLine(line: string): ParsedCommand {
     if (quoteMode === "none" && /\s/.test(char)) {
       if (current) {
         if (redirectType) {
-          redirects.push({ type: redirectType, file: current });
+          redirects.push({ type: redirectType, file: current, append: redirectAppend });
           redirectType = null;
+          redirectAppend = false;
         } else {
           tokens.push(current);
         }
@@ -299,8 +313,9 @@ function parseCommandLine(line: string): ParsedCommand {
 
   if (current) {
     if (redirectType) {
-      redirects.push({ type: redirectType, file: current });
+      redirects.push({ type: redirectType, file: current, append: redirectAppend });
       redirectType = null;
+      redirectAppend = false;
     } else {
       tokens.push(current);
     }
