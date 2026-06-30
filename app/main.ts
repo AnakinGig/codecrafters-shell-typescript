@@ -147,16 +147,6 @@ function completer(line: string): [string[], string] {
   return [[], line];
 }
 
-  // No further unambiguous extension possible: show bell + list, redraw prompt
-  process.stdout.write("\x07");
-  process.stdout.write("\n" + allMatches.join("  ") + "\n");
-  rl.prompt();
-  (rl as any).line = line;
-  (rl as any)._refreshLine?.();
-
-  return [[], line];
-}
-
 function longestCommonPrefix(strings: string[]): string {
   if (strings.length === 0) return "";
   let prefix = strings[0];
