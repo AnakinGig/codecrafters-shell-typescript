@@ -8,30 +8,6 @@ import { rl } from "../index";
 
 let lastCompletionLine: string | null = null;
 
-function getLastWord(line: string): { prefix: string; word: string } {
-  const lastSpaceIndex = line.lastIndexOf(" ");
-  const prefix = lastSpaceIndex === -1 ? "" : line.slice(0, lastSpaceIndex + 1);
-  const word = lastSpaceIndex === -1 ? line : line.slice(lastSpaceIndex + 1);
-  return { prefix, word };
-}
-
-function getCustomCompletions(line: string, word: string): string[] | null {
-  const firstSpaceIndex = line.indexOf(" ");
-  if (firstSpaceIndex === -1) return null; // no command typed yet, nothing to check
-
-  const command = line.slice(0, firstSpaceIndex);
-  const spec = getCompletionSpec(command);
-  if (!spec) return null;
-
-  try {
-    const output = execFileSync(spec.value, [], { encoding: "utf8" });
-    const lines = output.split("\n").filter(l => l.length > 0);
-    return lines;
-  } catch {
-    return [];
-  }
-}
-
 export function completer(line: string): [string[], string] {
   const { prefix, word } = getLastWord(line);
   const isFirstWord = prefix === "";
@@ -98,6 +74,50 @@ export function completer(line: string): [string[], string] {
   lastCompletionLine = null;
 
   return [[], line];
+}
+
+function getLastWord(line: string): { prefix: string; word: string } {
+  const lastSpaceIndex = line.lastIndexOf(" ");
+  const prefix = lastSpaceIndex === -1 ? "" : line.slice(0, lastSpaceIndex + 1);
+  const word = lastSpaceIndex === -1 ? line : line.slice(lastSpaceIndex + 1);
+  return { prefix, word };
+}
+
+function getCustomCompletions(line: string, word: string): string[] | null {
+  const firstSpaceIndex = line.indexOf(" ");
+  if (firstSpaceIndex === -1) return null; // no command typed yet
+
+  const command = line.slice(0, firstSpaceIndex);
+  const spec = getCompletionSpec(command);
+  if (!spec) return null;
+
+  // Split the rest of the line into words to find the one before `word`
+  const restOfLine = line.slice(firstSpaceIndex + 1);
+  const words = restOfLine.split(" ").filter(w => w.length > 0);
+
+  // `word` is currently being typed (possibly empty), so the "previous word"
+  // is the last fully-typed word before it. If `word` itself is non-empty and
+  // is the trailing partial text, it's already excluded by the split above
+  // since restOfLine still includes it as the last token if no trailing space.
+  let previousWord = "";
+  if (words.length > 0) {
+    const lastWord = words[words.length - 1];
+    if (lastWord === word) {
+      // the word being completed is itself the last token, so look one before it
+      previousWord = words.length > 1 ? words[words.length - 2] : "";
+    } else {
+      // word is empty (user pressed space then TAB), so the last token is the previous word
+      previousWord = lastWord;
+    }
+  }
+
+  try {
+    const output = execFileSync(spec.value, [command, word, previousWord], { encoding: "utf8" });
+    const lines = output.split("\n").filter(l => l.length > 0);
+    return lines;
+  } catch {
+    return [];
+  }
 }
 
 export function longestCommonPrefix(strings: string[]): string {
