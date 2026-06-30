@@ -112,12 +112,19 @@ function getCustomCompletions(line: string, word: string): string[] | null {
   }
 
   try {
-    const output = execFileSync(spec.value, [command, word, previousWord], { encoding: "utf8" });
-    const lines = output.split("\n").filter(l => l.length > 0);
-    return lines;
-  } catch {
-    return [];
-  }
+  const output = execFileSync(spec.value, [command, word, previousWord], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      COMP_LINE: line,
+      COMP_POINT: String(Buffer.byteLength(line, "utf8")),
+    },
+  });
+  const lines = output.split("\n").filter(l => l.length > 0);
+  return lines;
+} catch {
+  return [];
+}
 }
 
 export function longestCommonPrefix(strings: string[]): string {
