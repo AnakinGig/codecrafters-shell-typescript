@@ -5,7 +5,7 @@ import { completer } from "./shell/completion";
 import { handleArgumentNumber } from "./builtins";
 import { executePipeline } from "./shell/executor";
 import { reapDoneJobs } from "./shell/jobs";
-import { addToHistory, loadHistoryFromFile, writeHistoryToFile } from "./shell/history";
+import { addToHistory, appendHistoryToFile, loadHistoryFromFile } from "./shell/history";
 
 export const rl = createInterface({
   input: process.stdin,
@@ -47,7 +47,7 @@ rl.on("line", async (line) => {
 // Save on close
 rl.on("close", () => {
   if (process.env.HISTFILE) {
-    writeHistoryToFile(process.env.HISTFILE);
+    appendHistoryToFile(process.env.HISTFILE);
   }
   process.exit(0);
 });
