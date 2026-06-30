@@ -5,7 +5,7 @@ import { completer } from "./shell/completion";
 import { handleArgumentNumber } from "./builtins";
 import { executePipeline } from "./shell/executor";
 import { reapDoneJobs } from "./shell/jobs";
-import { addToHistory } from "./shell/history";
+import { addToHistory, loadHistoryFromFile, writeHistoryToFile } from "./shell/history";
 
 export const rl = createInterface({
   input: process.stdin,
@@ -13,6 +13,11 @@ export const rl = createInterface({
   prompt: "$ ",
   completer,
 });
+
+// Load history from HISTFILE on startup, if set
+if (process.env.HISTFILE) {
+  loadHistoryFromFile(process.env.HISTFILE);
+}
 
 reapDoneJobs();
 rl.prompt();
@@ -37,4 +42,12 @@ rl.on("line", async (line) => {
 
   reapDoneJobs();
   rl.prompt();
+});
+
+// Save on close
+rl.on("close", () => {
+  if (process.env.HISTFILE) {
+    writeHistoryToFile(process.env.HISTFILE);
+  }
+  process.exit(0);
 });
