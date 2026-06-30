@@ -2,8 +2,13 @@ import { type Builtin } from "../shell/types";
 import { getHistory } from "../shell/history";
 
 export const history: Builtin = {
-  minArgs: 0,
-  maxArgs: 1,
+  flags: {
+    "-r":{
+      argCount: 1,
+      handler: ([path]) => {
+        loadHistoryFromFile(path);
+    }
+  },
   execute: (args) => {
     const entries = getHistory();
 
