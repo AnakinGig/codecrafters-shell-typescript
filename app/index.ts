@@ -2,7 +2,7 @@ import { createInterface } from "readline";
 
 import { parseCommandLine } from "./shell/parser";
 import { completer } from "./shell/completion";
-import { handleArgumentNumber } from "./shell/executor";
+import { handleArgumentNumber } from "./builtins";
 import { executeCommand } from "./shell/executor";
 
 export const rl = createInterface({

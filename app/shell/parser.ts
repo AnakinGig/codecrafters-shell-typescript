@@ -1,4 +1,4 @@
-import {type ParsedCommand, type Redirect} from "./types";
+import { type ParsedCommand, type Redirect } from "./types";
 
 export function parseCommandLine(line: string): ParsedCommand {
   const tokens: string[] = [];
@@ -15,7 +15,6 @@ export function parseCommandLine(line: string): ParsedCommand {
   for (let i = 0; i < trimmed.length; i++) {
     const char = trimmed[i];
 
-    // Handle escape character outside of any quotes
     if (quoteMode === "none") {
       if (escaped) {
         current += char;
@@ -28,7 +27,6 @@ export function parseCommandLine(line: string): ParsedCommand {
       }
     }
 
-    // Handle escape character inside double quotes (selective)
     if (quoteMode === "double") {
       if (escaped) {
         if (char === "\\" || char === "$" || char === '"' || char === "`") {
@@ -45,13 +43,11 @@ export function parseCommandLine(line: string): ParsedCommand {
       }
     }
 
-    // Handle single quotes
     if (char === "'" && quoteMode !== "double") {
       quoteMode = quoteMode === "single" ? "none" : "single";
       continue;
     }
 
-    // Handle double quotes
     if (char === '"' && quoteMode !== "single") {
       quoteMode = quoteMode === "double" ? "none" : "double";
       continue;
@@ -69,15 +65,30 @@ export function parseCommandLine(line: string): ParsedCommand {
         current = "";
       }
 
-      // Check for >> (append)
       if (trimmed[i + 1] === ">") {
         redirectAppend = true;
-        i++; // skip the second '>'
+        i++;
       } else {
         redirectAppend = false;
       }
 
       redirectType = fd;
+      continue;
+    }
+
+    // Handle & as a standalone token (only when unquoted)
+    if (quoteMode === "none" && char === "&") {
+      if (current) {
+        if (redirectType) {
+          redirects.push({ type: redirectType, file: current, append: redirectAppend });
+          redirectType = null;
+          redirectAppend = false;
+        } else {
+          tokens.push(current);
+        }
+        current = "";
+      }
+      tokens.push("&");
       continue;
     }
 
@@ -114,12 +125,20 @@ export function parseCommandLine(line: string): ParsedCommand {
 
   if (redirectType) {
     console.log("syntax error: expected file after >");
-    return { command: "", args: [], redirects: [] };
+    return { command: "", args: [], redirects: [], background: false };
+  }
+
+  // Check for trailing & token to mark background execution
+  let background = false;
+  if (tokens.length > 0 && tokens[tokens.length - 1] === "&") {
+    background = true;
+    tokens.pop();
   }
 
   return {
     command: tokens[0] ?? "",
     args: tokens.slice(1),
     redirects,
+    background,
   };
 }
