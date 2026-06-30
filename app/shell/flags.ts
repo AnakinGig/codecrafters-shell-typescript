@@ -9,13 +9,17 @@ export function executeWithFlags(command: string, args: string[], flags: Record<
   }
 
   const spec = flags[flag];
+  
   if (!spec) {
     console.log(`${command}: unknown flag ${flag}`);
     return;
   }
-
   if (rest.length < spec.argCount) {
-    console.log(`${command}: ${flag} requires ${spec.argCount} argument(s)`);
+    console.log(`${command}: ${flag}: too few arguments`);
+    return;
+  }
+  if (rest.length > spec.argCount) {
+    console.log(`${command}: ${flag}: too many arguments`);
     return;
   }
 
