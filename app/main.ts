@@ -107,7 +107,17 @@ function completer(line: string): [string[], string] {
   const builtinMatches = Object.keys(builtins).filter(name => name.startsWith(line));
   const pathMatches = getExecutablesInPath(line);
 
-  const allMatches = Array.from(new Set([...builtinMatches, ...pathMatches])).sort();
+  let allMatches = Array.from(new Set([...builtinMatches, ...pathMatches])).sort();
+  let isFileCompletion = false;
+
+  // Fallback to filesystem completion when no command/executable matches
+  if (allMatches.length === 0) {
+    const { matches } = getFileMatches(line);
+    if (matches.length > 0) {
+      allMatches = matches;
+      isFileCompletion = true;
+    }
+  }
 
   if (allMatches.length === 0) {
     process.stdout.write("\x07"); // bell character
@@ -117,28 +127,33 @@ function completer(line: string): [string[], string] {
 
   if (allMatches.length === 1) {
     lastCompletionLine = null;
-    return [[allMatches[0] + " "], line];
+    const match = allMatches[0];
+    // Directories get a trailing "/" and no space, so completion can continue
+    const suffix = isFileCompletion && match.endsWith("/") ? "" : " ";
+    return [[match + suffix], line];
   }
 
   // Multiple matches: try to extend to the longest common prefix
   const commonPrefix = longestCommonPrefix(allMatches);
 
   if (commonPrefix.length > line.length) {
-    // We can extend the line further without ambiguity yet
     lastCompletionLine = null;
     return [[commonPrefix], line];
   }
 
   // No further unambiguous extension possible
   if (lastCompletionLine !== line) {
-    // First Tab on this ambiguous state: just ring the bell
     process.stdout.write("\x07");
     lastCompletionLine = line;
     return [[], line];
   }
 
-  // Second consecutive Tab on the same line: show the list
-  process.stdout.write("\n" + allMatches.join("  ") + "\n");
+  // For file listings, show basenames only (not full paths) like bash does
+  const displayList = isFileCompletion
+    ? allMatches.map(m => m.slice(m.lastIndexOf("/") + 1) || m)
+    : allMatches;
+
+  process.stdout.write("\n" + displayList.join("  ") + "\n");
   rl.prompt();
   (rl as any).line = line;
   (rl as any)._refreshLine?.();
@@ -162,6 +177,36 @@ function longestCommonPrefix(strings: string[]): string {
   }
 
   return prefix;
+}
+
+function getFileMatches(prefix: string): { matches: string[]; dir: string; base: string } {
+  // Split into directory part and basename part
+  const lastSlash = prefix.lastIndexOf("/");
+  const dir = lastSlash === -1 ? "." : prefix.slice(0, lastSlash + 1);
+  const base = lastSlash === -1 ? prefix : prefix.slice(lastSlash + 1);
+
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dir === "" ? "." : dir);
+  } catch {
+    return { matches: [], dir, base };
+  }
+
+  const matches: string[] = [];
+  for (const entry of entries) {
+    if (!entry.startsWith(base)) continue;
+    if (entry.startsWith(".") && !base.startsWith(".")) continue; // hide dotfiles unless explicitly requested
+
+    const fullPath = (dir === "." ? "" : dir) + entry;
+    let isDir = false;
+    try {
+      isDir = fs.statSync(fullPath).isDirectory();
+    } catch {}
+
+    matches.push(dir + entry + (isDir ? "/" : ""));
+  }
+
+  return { matches: matches.sort(), dir, base };
 }
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
