@@ -93,7 +93,7 @@ function handleEchoCommand(args: string[], redirects: Redirect[]): void {
       if (redirect.type === "stdout") {
         fs.writeFileSync(redirect.file, output + "\n", { flag: redirect.append ? "a" : "w" });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.log(`Error writing to file ${redirect.file}: ${err.message}`);
     }
     return;
@@ -109,7 +109,7 @@ function handleCdCommand(args: string[]): void {
       path = path.replace("~", os.homedir());
     }
     process.chdir(path);
-  } catch (err) {
+  } catch (err: any) {
     console.log(`cd: ${args[0]}: No such file or directory`);
   }
 }
@@ -133,7 +133,7 @@ function handleTypeCommand(args: string[]): void {
       console.log(`${args[0]} is ${commandPath}`);
       found = true;
       break;
-    } catch (err) {
+    } catch (err: any) {
       // command not found in this directory, continue searching
     }
   }
