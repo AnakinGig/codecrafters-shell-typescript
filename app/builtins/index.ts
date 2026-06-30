@@ -9,6 +9,7 @@ import { complete } from "./complete";
 import { args } from "./args";
 import { jobs } from "./jobs";
 import { history } from "./history";
+import { declare } from "./declare";
 
 export const builtins: Record<string, Builtin> = {
   exit,
@@ -20,6 +21,7 @@ export const builtins: Record<string, Builtin> = {
   args,
   jobs,
   history,
+  declare,
 }
 
 export function handleArgumentNumber(command: string, args: string[]): boolean {
