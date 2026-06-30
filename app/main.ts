@@ -212,7 +212,21 @@ function parseCommandLine(line: string): ParsedCommand {
 
   for (const char of line.trim()) {
 
-    // Handle escape character outside simple quotes (single quote mode)
+    // Handle escape character outside of any quotes
+    if (quoteMode === "none") {
+      if (escaped) {
+        current += char;
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+    }
+
+    // Handle escape character inside single quotes (no escaping happens here normally,
+    // but your implementation already supports it — keep as is if intentional)
     if (quoteMode === "single") {
       if (escaped) {
         current += char;
@@ -228,11 +242,9 @@ function parseCommandLine(line: string): ParsedCommand {
     // Handle escape character inside double quotes (selective)
     if (quoteMode === "double") {
       if (escaped) {
-        // Only these chars are "really" escaped inside double quotes
         if (char === "\\" || char === "$" || char === '"' || char === "`") {
           current += char;
         } else {
-          // backslash is kept literally for any other char
           current += "\\" + char;
         }
         escaped = false;
@@ -271,14 +283,10 @@ function parseCommandLine(line: string): ParsedCommand {
       continue;
     }
 
-    // Outside of quotes, split on whitespace
     if (quoteMode === "none" && /\s/.test(char)) {
       if (current) {
         if (redirectType) {
-          redirects.push({
-            type: redirectType,
-            file: current,
-          });
+          redirects.push({ type: redirectType, file: current });
           redirectType = null;
         } else {
           tokens.push(current);
@@ -297,10 +305,7 @@ function parseCommandLine(line: string): ParsedCommand {
 
   if (current) {
     if (redirectType) {
-      redirects.push({
-        type: redirectType,
-        file: current,
-      });
+      redirects.push({ type: redirectType, file: current });
       redirectType = null;
     } else {
       tokens.push(current);
