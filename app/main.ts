@@ -225,20 +225,6 @@ function parseCommandLine(line: string): ParsedCommand {
       }
     }
 
-    // Handle escape character inside single quotes (no escaping happens here normally,
-    // but your implementation already supports it — keep as is if intentional)
-    if (quoteMode === "single") {
-      if (escaped) {
-        current += char;
-        escaped = false;
-        continue;
-      }
-      if (char === "\\") {
-        escaped = true;
-        continue;
-      }
-    }
-
     // Handle escape character inside double quotes (selective)
     if (quoteMode === "double") {
       if (escaped) {
@@ -256,7 +242,7 @@ function parseCommandLine(line: string): ParsedCommand {
       }
     }
 
-    // Handle single quotes
+    // Handle single quotes (everything inside is literal — no escaping at all)
     if (char === "'" && quoteMode !== "double") {
       quoteMode = quoteMode === "single" ? "none" : "single";
       continue;
@@ -322,12 +308,4 @@ function parseCommandLine(line: string): ParsedCommand {
     args: tokens.slice(1),
     redirects,
   };
-}
-
-function handleDoubleQuote(char: string): string {
-  return char; // TODO later
-}
-
-function handleSingleQuote(char: string): string {
-  return char; // TODO later
 }
