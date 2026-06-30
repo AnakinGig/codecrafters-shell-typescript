@@ -70,22 +70,3 @@ function runExternalCommand(command: string, args: string[], redirects: any[]): 
     }
   }
 }
-
-export function handleArgumentNumber(command: string, args: string[]): boolean {
-  const cmd = builtins[command];
-  if (!cmd) return true;
-
-  // Skip generic arg-count check for flag-driven builtins —
-  // their own execute() handles validation per flag.
-  if (cmd.flags) return true;
-
-  if (cmd.minArgs !== undefined && args.length < cmd.minArgs) {
-    console.log(`${command}: too few arguments`);
-    return false;
-  }
-  if (cmd.maxArgs !== undefined && cmd.maxArgs !== null && args.length > cmd.maxArgs) {
-    console.log(`${command}: too many arguments`);
-    return false;
-  }
-  return true;
-}
