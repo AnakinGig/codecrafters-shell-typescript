@@ -60,7 +60,7 @@ function executeCommand(parsed: ParsedCommand): void {
   switch (command) {
     case "exit":
       rl.close();
-      return;
+      process.exit(0);
 
     case "echo":
       handleEchoCommand(args, redirects);
