@@ -19,11 +19,10 @@ export function addJob(process: ChildProcess, command: string): Job {
     pid: process.pid!,
     process,
     command,
-    status: "running"
+    status: "running",
   };
   jobs.push(job);
 
-  // Clean up from the list once the process exits
   process.on("exit", () => {
     job.status = "done";
   });
@@ -36,8 +35,21 @@ export function listJobs(): Job[] {
 }
 
 export function removeJob(id: number): void {
-  const index = jobs.findIndex(job => job.id === id);
-  if (index !== -1) {
-    jobs.splice(index, 1);
-  }
+  const index = jobs.findIndex(j => j.id === id);
+  if (index !== -1) jobs.splice(index, 1);
+}
+
+// Finds all "done" jobs, prints a Done line for each, and removes them.
+export function reapDoneJobs(): void {
+  const doneJobs = jobs.filter(j => j.status === "done");
+
+  doneJobs.forEach((job, index) => {
+    const isCurrent = jobs[jobs.length - 1]?.id === job.id;
+    const isPrevious = jobs[jobs.length - 2]?.id === job.id;
+    const marker = isCurrent ? "+" : isPrevious ? "-" : " ";
+
+    console.log(`[${job.id}]${marker}  Done                    ${job.command}`);
+  });
+
+  doneJobs.forEach(job => removeJob(job.id));
 }
