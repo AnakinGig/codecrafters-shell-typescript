@@ -46,13 +46,33 @@ function splitPipeline(line: string): string[] {
   return segments.map(s => s.trim());
 }
 
-// Reads a $NAME variable reference starting at index i (where trimmed[i] === "$").
+// Reads a $NAME or ${NAME} variable reference starting at index i (where trimmed[i] === "$").
 // Returns the expanded value and the index just past the consumed characters,
 // or null if "$" isn't followed by a valid identifier (treated literally then).
 function readVariableExpansion(
   trimmed: string,
   i: number
 ): { value: string; nextIndex: number } | null {
+  // Braced form: ${NAME}
+  if (trimmed[i + 1] === "{") {
+    let j = i + 2;
+    let name = "";
+
+    while (j < trimmed.length && trimmed[j] !== "}") {
+      name += trimmed[j];
+      j++;
+    }
+
+    // Missing closing brace, or empty/invalid identifier inside braces
+    if (trimmed[j] !== "}" || name.length === 0 || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
+      return null;
+    }
+
+    const value = getVariable(name) ?? "";
+    return { value, nextIndex: j + 1 }; // +1 to skip past the closing "}"
+  }
+
+  // Unbraced form: $NAME
   let j = i + 1;
   let name = "";
 
