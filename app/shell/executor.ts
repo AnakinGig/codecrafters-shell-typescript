@@ -39,16 +39,18 @@ function runExternalCommand(command: string, args: string[], redirects: Redirect
 }
 
 export function handleArgumentNumber(command: string, args: string[]): boolean {
-  // Tell if builtin command has too many or too few arguments
   const cmd = builtins[command];
+  if (!cmd) return true;
 
-  if (!cmd) return true; // Not a builtin command, let the OS handle it
+  // Skip generic arg-count check for flag-driven builtins —
+  // their own execute() handles validation per flag.
+  if (cmd.flags) return true;
 
-  if (args.length < cmd.minArgs) {
+  if (cmd.minArgs !== undefined && args.length < cmd.minArgs) {
     console.log(`${command}: too few arguments`);
     return false;
   }
-  if (cmd.maxArgs !== null && args.length > cmd.maxArgs) {
+  if (cmd.maxArgs !== undefined && cmd.maxArgs !== null && args.length > cmd.maxArgs) {
     console.log(`${command}: too many arguments`);
     return false;
   }
