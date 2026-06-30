@@ -111,12 +111,19 @@ function completer(line:string): [string[], string] {
     process.stdout.write("\x07"); // bell character
     return [[], line];
   }
-  else if (allMatches.length > 1) {
-    process.stdout.write("\x07"); // bell character
+  if (allMatches.length === 1) {
+    return [[allMatches[0] + " "], line];
   }
 
-  const completions = allMatches.map(name => name + " ");
-  return [completions, line];
+  // Multiple matches: handle bell + listing + prompt redraw manually
+  process.stdout.write("\x07");
+  process.stdout.write("\n" + allMatches.join("  ") + "\n");
+  rl.prompt();
+  // rl.prompt() doesn't restore what the user already typed, so we rewrite it
+  (rl as any).line = line;
+  (rl as any)._refreshLine?.();
+
+  return [[], line];
 }
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
