@@ -88,6 +88,12 @@ function executeCommand(parsed: ParsedCommand): void {
 function completer(line:string): [string[], string] {
   const completions = commands.map(cmd => cmd.name + " ");
   const hits = completions.filter((c) => c.startsWith(line));
+
+  if (hits.length === 0) {
+    process.stdout.write("\x07"); // bell character
+    return [[], line];
+  }
+
   return [hits.length ? hits : completions, line];
 }
 
