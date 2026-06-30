@@ -5,7 +5,8 @@ export function setVariable(name: string, value: string): void {
 }
 
 export function getVariable(name: string): string | undefined {
-  return variables[name];
+  if (name in variables) return variables[name];
+  return process.env[name];
 }
 
 export function hasVariable(name: string): boolean {

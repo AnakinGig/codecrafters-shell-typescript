@@ -1,4 +1,5 @@
 import { type ParsedCommand, type ParsedPipeline, type Redirect } from "./types";
+import { getVariable } from "./variables";
 
 // Splits the raw line into pipeline segments on unquoted "|"
 function splitPipeline(line: string): string[] {
@@ -17,7 +18,7 @@ function splitPipeline(line: string): string[] {
     }
     if (quoteMode === "none" && char === "\\") {
       escaped = true;
-      current += char; // keep it, real parsing happens later per-segment
+      current += char;
       continue;
     }
 
@@ -45,7 +46,29 @@ function splitPipeline(line: string): string[] {
   return segments.map(s => s.trim());
 }
 
-// Parses a single pipeline stage (same logic you already had, minus the `&` handling)
+// Reads a $NAME variable reference starting at index i (where trimmed[i] === "$").
+// Returns the expanded value and the index just past the consumed characters,
+// or null if "$" isn't followed by a valid identifier (treated literally then).
+function readVariableExpansion(
+  trimmed: string,
+  i: number
+): { value: string; nextIndex: number } | null {
+  let j = i + 1;
+  let name = "";
+
+  while (j < trimmed.length && /[a-zA-Z0-9_]/.test(trimmed[j])) {
+    name += trimmed[j];
+    j++;
+  }
+
+  if (name.length === 0 || !/^[a-zA-Z_]/.test(name)) {
+    return null;
+  }
+
+  const value = getVariable(name) ?? "";
+  return { value, nextIndex: j };
+}
+
 function parseStage(segment: string): ParsedCommand {
   const tokens: string[] = [];
   const redirects: Redirect[] = [];
@@ -95,6 +118,20 @@ function parseStage(segment: string): ParsedCommand {
     }
     if (char === '"' && quoteMode !== "single") {
       quoteMode = quoteMode === "double" ? "none" : "double";
+      continue;
+    }
+
+    // Variable expansion: active outside quotes and inside double quotes,
+    // never inside single quotes.
+    if (char === "$" && quoteMode !== "single") {
+      const expansion = readVariableExpansion(trimmed, i);
+      if (expansion) {
+        current += expansion.value;
+        i = expansion.nextIndex - 1; // -1 because the for loop will i++
+        continue;
+      }
+      // "$" not followed by a valid identifier: treat literally
+      current += char;
       continue;
     }
 
@@ -159,7 +196,6 @@ export function parseCommandLine(line: string): ParsedPipeline {
   let trimmed = line.trim();
   let background = false;
 
-  // Detect trailing "&" on the whole pipeline
   if (trimmed.endsWith("&")) {
     background = true;
     trimmed = trimmed.slice(0, -1).trim();
