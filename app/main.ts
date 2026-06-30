@@ -101,7 +101,7 @@ function executeCommand(parsed: ParsedCommand): void {
   }
 }
 
-function completer(line:string): [string[], string] {
+function completer(line: string): [string[], string] {
   const builtinMatches = Object.keys(builtins).filter(name => name.startsWith(line));
   const pathMatches = getExecutablesInPath(line);
 
@@ -111,19 +111,44 @@ function completer(line:string): [string[], string] {
     process.stdout.write("\x07"); // bell character
     return [[], line];
   }
+
   if (allMatches.length === 1) {
     return [[allMatches[0] + " "], line];
   }
 
-  // Multiple matches: handle bell + listing + prompt redraw manually
+  // Multiple matches: try to extend to the longest common prefix
+  const commonPrefix = longestCommonPrefix(allMatches);
+
+  if (commonPrefix.length > line.length) {
+    // We can extend the line further without ambiguity yet
+    return [[commonPrefix], line];
+  }
+
+  // No further unambiguous extension possible: show bell + list, redraw prompt
   process.stdout.write("\x07");
   process.stdout.write("\n" + allMatches.join("  ") + "\n");
   rl.prompt();
-  // rl.prompt() doesn't restore what the user already typed, so we rewrite it
   (rl as any).line = line;
   (rl as any)._refreshLine?.();
 
   return [[], line];
+}
+
+function longestCommonPrefix(strings: string[]): string {
+  if (strings.length === 0) return "";
+  let prefix = strings[0];
+
+  for (let i = 1; i < strings.length; i++) {
+    let j = 0;
+    const s = strings[i];
+    while (j < prefix.length && j < s.length && prefix[j] === s[j]) {
+      j++;
+    }
+    prefix = prefix.slice(0, j);
+    if (prefix === "") break;
+  }
+
+  return prefix;
 }
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
