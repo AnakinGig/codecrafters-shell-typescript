@@ -1,6 +1,52 @@
-import { type ParsedCommand, type Redirect } from "./types";
+import { type ParsedCommand, type ParsedPipeline, type Redirect } from "./types";
 
-export function parseCommandLine(line: string): ParsedCommand {
+// Splits the raw line into pipeline segments on unquoted "|"
+function splitPipeline(line: string): string[] {
+  const segments: string[] = [];
+  let current = "";
+  let quoteMode: "none" | "single" | "double" = "none";
+  let escaped = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (quoteMode === "none" && escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (quoteMode === "none" && char === "\\") {
+      escaped = true;
+      current += char; // keep it, real parsing happens later per-segment
+      continue;
+    }
+
+    if (char === "'" && quoteMode !== "double") {
+      quoteMode = quoteMode === "single" ? "none" : "single";
+      current += char;
+      continue;
+    }
+    if (char === '"' && quoteMode !== "single") {
+      quoteMode = quoteMode === "double" ? "none" : "double";
+      current += char;
+      continue;
+    }
+
+    if (quoteMode === "none" && char === "|") {
+      segments.push(current);
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  segments.push(current);
+  return segments.map(s => s.trim());
+}
+
+// Parses a single pipeline stage (same logic you already had, minus the `&` handling)
+function parseStage(segment: string): ParsedCommand {
   const tokens: string[] = [];
   const redirects: Redirect[] = [];
   let current = "";
@@ -10,7 +56,7 @@ export function parseCommandLine(line: string): ParsedCommand {
   let redirectType: "stdout" | "stderr" | null = null;
   let redirectAppend = false;
 
-  const trimmed = line.trim();
+  const trimmed = segment.trim();
 
   for (let i = 0; i < trimmed.length; i++) {
     const char = trimmed[i];
@@ -47,7 +93,6 @@ export function parseCommandLine(line: string): ParsedCommand {
       quoteMode = quoteMode === "single" ? "none" : "single";
       continue;
     }
-
     if (char === '"' && quoteMode !== "single") {
       quoteMode = quoteMode === "double" ? "none" : "double";
       continue;
@@ -76,22 +121,6 @@ export function parseCommandLine(line: string): ParsedCommand {
       continue;
     }
 
-    // Handle & as a standalone token (only when unquoted)
-    if (quoteMode === "none" && char === "&") {
-      if (current) {
-        if (redirectType) {
-          redirects.push({ type: redirectType, file: current, append: redirectAppend });
-          redirectType = null;
-          redirectAppend = false;
-        } else {
-          tokens.push(current);
-        }
-        current = "";
-      }
-      tokens.push("&");
-      continue;
-    }
-
     if (quoteMode === "none" && /\s/.test(char)) {
       if (current) {
         if (redirectType) {
@@ -109,36 +138,35 @@ export function parseCommandLine(line: string): ParsedCommand {
     current += char;
   }
 
-  if (escaped) {
-    current += "\\";
-  }
+  if (escaped) current += "\\";
 
   if (current) {
     if (redirectType) {
       redirects.push({ type: redirectType, file: current, append: redirectAppend });
-      redirectType = null;
-      redirectAppend = false;
     } else {
       tokens.push(current);
     }
-  }
-
-  if (redirectType) {
-    console.log("syntax error: expected file after >");
-    return { command: "", args: [], redirects: [], background: false };
-  }
-
-  // Check for trailing & token to mark background execution
-  let background = false;
-  if (tokens.length > 0 && tokens[tokens.length - 1] === "&") {
-    background = true;
-    tokens.pop();
   }
 
   return {
     command: tokens[0] ?? "",
     args: tokens.slice(1),
     redirects,
-    background,
   };
+}
+
+export function parseCommandLine(line: string): ParsedPipeline {
+  let trimmed = line.trim();
+  let background = false;
+
+  // Detect trailing "&" on the whole pipeline
+  if (trimmed.endsWith("&")) {
+    background = true;
+    trimmed = trimmed.slice(0, -1).trim();
+  }
+
+  const segments = splitPipeline(trimmed);
+  const stages = segments.map(parseStage).filter(s => s.command !== "");
+
+  return { stages, background };
 }

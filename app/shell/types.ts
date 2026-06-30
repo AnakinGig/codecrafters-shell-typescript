@@ -8,6 +8,10 @@ export type ParsedCommand = {
   command: string;
   args: string[];
   redirects: Redirect[];
+};
+
+export type ParsedPipeline = {
+  stages: ParsedCommand[];
   background: boolean;
 };
 
