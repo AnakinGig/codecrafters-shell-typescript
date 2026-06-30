@@ -101,6 +101,8 @@ function executeCommand(parsed: ParsedCommand): void {
   }
 }
 
+let lastCompletionLine: string | null = null;
+
 function completer(line: string): [string[], string] {
   const builtinMatches = Object.keys(builtins).filter(name => name.startsWith(line));
   const pathMatches = getExecutablesInPath(line);
@@ -109,10 +111,12 @@ function completer(line: string): [string[], string] {
 
   if (allMatches.length === 0) {
     process.stdout.write("\x07"); // bell character
+    lastCompletionLine = null;
     return [[], line];
   }
 
   if (allMatches.length === 1) {
+    lastCompletionLine = null;
     return [[allMatches[0] + " "], line];
   }
 
@@ -121,8 +125,27 @@ function completer(line: string): [string[], string] {
 
   if (commonPrefix.length > line.length) {
     // We can extend the line further without ambiguity yet
+    lastCompletionLine = null;
     return [[commonPrefix], line];
   }
+
+  // No further unambiguous extension possible
+  if (lastCompletionLine !== line) {
+    // First Tab on this ambiguous state: just ring the bell
+    process.stdout.write("\x07");
+    lastCompletionLine = line;
+    return [[], line];
+  }
+
+  // Second consecutive Tab on the same line: show the list
+  process.stdout.write("\n" + allMatches.join("  ") + "\n");
+  rl.prompt();
+  (rl as any).line = line;
+  (rl as any)._refreshLine?.();
+  lastCompletionLine = null;
+
+  return [[], line];
+}
 
   // No further unambiguous extension possible: show bell + list, redraw prompt
   process.stdout.write("\x07");
