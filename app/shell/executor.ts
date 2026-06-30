@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from "child_process";
-import { Readable } from "stream";
 import fs from "fs";
 
+import { rl } from "../";
 import { type ParsedCommand, type ParsedPipeline } from "./types";
 import { buildStdio } from "./redirects";
 import { builtins } from "../builtins";
@@ -165,19 +165,49 @@ function runBackgroundCommand(command: string, args: string[], redirects: any[])
 }
 
 function runExternalCommand(command: string, args: string[], redirects: any[]): Promise<void> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const stdio = buildStdio(redirects);
-    const child = spawn(command, args, { stdio });
+
+    const isTTY = process.stdin.isTTY;
+    const wasRaw = isTTY && (process.stdin as any).isRaw;
+
+    rl.pause();
+    if (isTTY) {
+      try { process.stdin.setRawMode(false); } catch {}
+    }
+    process.stdin.pause();
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(command, args, { stdio });
+    } catch {
+      console.log(`${command}: command not found`);
+      restore();
+      resolve();
+      return;
+    }
+
+    function restore() {
+      if (isTTY && wasRaw) {
+        try { process.stdin.setRawMode(true); } catch {}
+      }
+      process.stdin.resume();
+      rl.resume();
+    }
+
+    const cleanup = () => {
+      closeFds(stdio);
+      restore();
+      resolve();
+    };
 
     child.once("error", () => {
       console.log(`${command}: command not found`);
-      closeFds(stdio);
-      resolve();
+      cleanup();
     });
 
     child.once("exit", () => {
-      closeFds(stdio);
-      resolve();
+      cleanup();
     });
   });
 }
