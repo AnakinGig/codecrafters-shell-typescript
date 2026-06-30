@@ -30,6 +30,12 @@ export const complete: Builtin = {
       handler: ([path, command]) => {
         completions[command] = { type: "C", value: path };
       }
+    },
+    "-r": {
+      argCount: 1,
+      handler: ([command]) => {
+        delete completions[command];
+      }
     }
   },
   execute: (args) => {
