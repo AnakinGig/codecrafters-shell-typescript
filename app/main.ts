@@ -13,9 +13,16 @@ type Command = {
   maxArgs: number | null;
 }
 
+type Redirect = {
+  type: "stdout" | "stdin" | "stderr";
+  append?: boolean;
+  file: string;
+}
+
 type ParsedCommand = {
   command: string;
   args: string[];
+  redirects: Redirect[];
 }
 
 const commands: Command[] = [
@@ -30,51 +37,78 @@ rl.prompt();
 
 rl.on("line", (line) => {
 
-  // Command and arguments parsing
-  const { command, args } = parseCommandLine(line);
+  const parsed = parseCommandLine(line);
 
-  if (!command) {
-    rl.prompt();
-    return;
-  }
-  
-  // Handle number of arguments for builtin commands
-  if (!handleArgumentNumber(command, args)) {
+  if (!parsed.command) {
     rl.prompt();
     return;
   }
 
-  // Handle builtin commands
-  switch (command) {
-    case "exit":
-      rl.close();
-      return;
-    case "echo":
-      handleEchoCommand(args);
-      break;
-    case "type":
-      handleTypeCommand(args);
-      break;
-    case "pwd":
-      console.log(process.cwd());
-      break;
-    case "cd":
-      handleCdCommand(args);
-      break;
-    default:
-      // Not builtin command
-      try {
-        require("child_process").execFileSync(command, args, { stdio: "inherit" });
-      } catch (err) {
-        console.log(`${command}: command not found`);
-      }
+  if (!handleArgumentNumber(parsed.command, parsed.args)) {
+    rl.prompt();
+    return;
   }
+
+  executeCommand(parsed);
 
   rl.prompt();
 });
 
-function handleEchoCommand(args: string[]): void {
-  console.log(args.join(" "));
+function executeCommand(parsed: ParsedCommand): void {
+  const { command, args, redirects } = parsed;
+
+  switch (command) {
+    case "exit":
+      rl.close();
+      return;
+
+    case "echo":
+      handleEchoCommand(args, redirects);
+      break;
+
+    case "type":
+      handleTypeCommand(args);
+      break;
+
+    case "pwd":
+      console.log(process.cwd());
+      break;
+
+    case "cd":
+      handleCdCommand(args);
+      break;
+
+    default:
+      try {
+        require("child_process").execFileSync(
+          command,
+          args,
+          {
+            stdio: "inherit",
+          }
+        );
+      } catch (err) {
+        console.log(`${command}: command not found`);
+      }
+  }
+}
+
+function handleEchoCommand(args: string[], redirects: Redirect[]): void {
+  const output = args.join(" ");
+  if (redirects.length > 0) {
+    const redirect = redirects[0];
+    const fs = require("fs");
+    try {
+      if (redirect.type === "stdout") {
+        fs.writeFileSync(redirect.file, output + "\n", { flag: redirect.append ? "a" : "w" });
+      }
+    } catch (err) {
+      console.log(`Error writing to file ${redirect.file}: ${err.message}`);
+    }
+    return;
+  }
+
+  console.log(output);
 }
 
 function handleCdCommand(args: string[]): void {
@@ -136,10 +170,12 @@ function handleArgumentNumber(command: string, args: string[]): boolean {
 
 function parseCommandLine(line: string): ParsedCommand {
   const tokens: string[] = [];
+  const redirects: Redirect[] = [];
   let current = "";
 
   let quoteMode: "none" | "single" | "double" = "none";
   let escaped = false;
+  let redirectType: "stdout" | "stderr" | null = null;
 
   for (const char of line.trim()) {
 
@@ -181,10 +217,33 @@ function parseCommandLine(line: string): ParsedCommand {
       continue;
     }
 
+    if (quoteMode === "none" && char === ">") {
+      let fd: "stdout" | "stderr" = "stdout";
+      if (current === "1") {
+        current = "";
+      }else if (current === "2") {
+        fd = "stderr";
+        current = "";
+      }else if (current) {
+        tokens.push(current);
+        current = "";
+      }
+      redirectType = fd;
+      continue;
+    }
+
     // Outside of quotes, split on whitespace
     if (/\s/.test(char)) {
       if (current) {
-        tokens.push(current);
+        if (redirectType) {
+          redirects.push({
+            type: redirectType,
+            file: current,
+          });
+          redirectType = null;
+        }else{
+          tokens.push(current);
+        }
         current = "";
       }
       continue;
@@ -198,10 +257,27 @@ function parseCommandLine(line: string): ParsedCommand {
   }
 
   if (current) {
-    tokens.push(current);
+    if (redirectType) {
+      redirects.push({
+        type: redirectType,
+        file: current,
+      });
+      redirectType = null;
+    } else {
+      tokens.push(current);
+    }
   }
 
-  return { command: tokens[0] ?? "", args: tokens.slice(1) };
+  if (redirectType){
+    console.log("syntax error: expected file after >")
+    return { command: "", args: [], redirects: [] };
+  }
+
+  return { 
+    command: tokens[0] ?? "", 
+    args: tokens.slice(1),
+    redirects,
+  };
 }
 
 function handleDoubleQuote(char: string): string {
