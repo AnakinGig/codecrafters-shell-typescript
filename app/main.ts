@@ -111,6 +111,9 @@ function completer(line:string): [string[], string] {
     process.stdout.write("\x07"); // bell character
     return [[], line];
   }
+  else if (allMatches.length > 1) {
+    process.stdout.write("\x07"); // bell character
+  }
 
   const completions = allMatches.map(name => name + " ");
   return [completions, line];
