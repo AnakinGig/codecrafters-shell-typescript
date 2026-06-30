@@ -94,12 +94,15 @@ function getCustomCompletions(line: string, word: string): string[] | null {
   const restOfLine = line.slice(firstSpaceIndex + 1);
   const words = restOfLine.split(" ").filter(w => w.length > 0);
 
-  let previousWord = "";
+  let previousWord = command; // default: the command itself, when completing the first arg
   if (words.length > 0) {
     const lastWord = words[words.length - 1];
     if (lastWord === word) {
-      previousWord = words.length > 1 ? words[words.length - 2] : "";
+      // word being completed is the last token; previous word is the one before it,
+      // or the command itself if there's nothing before
+      previousWord = words.length > 1 ? words[words.length - 2] : command;
     } else {
+      // word is empty (trailing space before TAB), last token is the previous word
       previousWord = lastWord;
     }
   }
@@ -118,7 +121,7 @@ function getCustomCompletions(line: string, word: string): string[] | null {
       .split("\n")
       .map(l => l.trim())
       .filter(l => l.length > 0)
-      .sort(); // alphabetical order as required
+      .sort();
 
     return candidates;
   } catch {
