@@ -1,7 +1,9 @@
 import fs from "fs";
+import { execFileSync } from "child_process";
 
 import { getExecutablesInPath } from "../utils/path";
 import { builtins } from "../builtins";
+import { getCompletionSpec } from "../builtins/complete";
 import { rl } from "../index";
 
 let lastCompletionLine: string | null = null;
@@ -11,6 +13,23 @@ function getLastWord(line: string): { prefix: string; word: string } {
   const prefix = lastSpaceIndex === -1 ? "" : line.slice(0, lastSpaceIndex + 1);
   const word = lastSpaceIndex === -1 ? line : line.slice(lastSpaceIndex + 1);
   return { prefix, word };
+}
+
+function getCustomCompletions(line: string, word: string): string[] | null {
+  const firstSpaceIndex = line.indexOf(" ");
+  if (firstSpaceIndex === -1) return null; // no command typed yet, nothing to check
+
+  const command = line.slice(0, firstSpaceIndex);
+  const spec = getCompletionSpec(command);
+  if (!spec) return null;
+
+  try {
+    const output = execFileSync(spec.value, [], { encoding: "utf8" });
+    const lines = output.split("\n").filter(l => l.length > 0);
+    return lines;
+  } catch {
+    return [];
+  }
 }
 
 export function completer(line: string): [string[], string] {
@@ -24,10 +43,15 @@ export function completer(line: string): [string[], string] {
     const builtinMatches = Object.keys(builtins).filter(name => name.startsWith(word));
     const pathMatches = getExecutablesInPath(word);
     allMatches = Array.from(new Set([...builtinMatches, ...pathMatches])).sort();
+  } else {
+    // Check for a registered external completer first
+    const customMatches = getCustomCompletions(line, word);
+    if (customMatches !== null) {
+      allMatches = customMatches;
+    }
   }
 
-  // Fallback to filesystem completion when no command/executable matches
-  // (or directly for non-first words, e.g. arguments)
+  // Fallback to filesystem completion when nothing else matched
   if (allMatches.length === 0) {
     const { matches } = getFileMatches(word);
     if (matches.length > 0) {
@@ -37,7 +61,7 @@ export function completer(line: string): [string[], string] {
   }
 
   if (allMatches.length === 0) {
-    process.stdout.write("\x07"); // bell character
+    process.stdout.write("\x07");
     lastCompletionLine = null;
     return [[], line];
   }
@@ -49,7 +73,6 @@ export function completer(line: string): [string[], string] {
     return [[prefix + match + suffix], line];
   }
 
-  // Multiple matches: try to extend to the longest common prefix
   const commonPrefix = longestCommonPrefix(allMatches);
 
   if (commonPrefix.length > word.length) {
@@ -57,7 +80,6 @@ export function completer(line: string): [string[], string] {
     return [[prefix + commonPrefix], line];
   }
 
-  // No further unambiguous extension possible
   if (lastCompletionLine !== line) {
     process.stdout.write("\x07");
     lastCompletionLine = line;
@@ -97,10 +119,7 @@ export function longestCommonPrefix(strings: string[]): string {
 
 export function getFileMatches(prefix: string): { matches: string[]; dir: string; base: string } {
   const lastSlash = prefix.lastIndexOf("/");
-
-  // displayDir is what gets prepended to the matched filename (empty if no "/" was typed)
   const displayDir = lastSlash === -1 ? "" : prefix.slice(0, lastSlash + 1);
-  // searchDir is the actual directory to scan with readdirSync
   const searchDir = lastSlash === -1 ? "." : prefix.slice(0, lastSlash + 1);
   const base = lastSlash === -1 ? prefix : prefix.slice(lastSlash + 1);
 

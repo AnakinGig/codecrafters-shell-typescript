@@ -8,6 +8,10 @@ type CompletionSpec = {
 
 const completions: Record<string, CompletionSpec> = {};
 
+export function getCompletionSpec(command: string): CompletionSpec | undefined {
+  return completions[command];
+}
+
 export const complete: Builtin = {
   flags: {
     "-p": {
