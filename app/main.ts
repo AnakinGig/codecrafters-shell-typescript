@@ -212,14 +212,32 @@ function parseCommandLine(line: string): ParsedCommand {
 
   for (const char of line.trim()) {
 
-    // Handle escape character outside simple quotes
+    // Handle escape character outside simple quotes (single quote mode)
     if (quoteMode === "single") {
       if (escaped) {
         current += char;
         escaped = false;
         continue;
       }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+    }
 
+    // Handle escape character inside double quotes (selective)
+    if (quoteMode === "double") {
+      if (escaped) {
+        // Only these chars are "really" escaped inside double quotes
+        if (char === "\\" || char === "$" || char === '"' || char === "`") {
+          current += char;
+        } else {
+          // backslash is kept literally for any other char
+          current += "\\" + char;
+        }
+        escaped = false;
+        continue;
+      }
       if (char === "\\") {
         escaped = true;
         continue;
@@ -238,26 +256,14 @@ function parseCommandLine(line: string): ParsedCommand {
       continue;
     }
 
-    // Process character within double quotes
-    if (quoteMode === "double") {
-      current += handleDoubleQuote(char);
-      continue;
-    }
-
-    // Process character within single quotes
-    if (quoteMode === "single") {
-      current += handleSingleQuote(char);
-      continue;
-    }
-
     if (quoteMode === "none" && char === ">") {
       let fd: "stdout" | "stderr" = "stdout";
       if (current === "1") {
         current = "";
-      }else if (current === "2") {
+      } else if (current === "2") {
         fd = "stderr";
         current = "";
-      }else if (current) {
+      } else if (current) {
         tokens.push(current);
         current = "";
       }
@@ -266,7 +272,7 @@ function parseCommandLine(line: string): ParsedCommand {
     }
 
     // Outside of quotes, split on whitespace
-    if (/\s/.test(char)) {
+    if (quoteMode === "none" && /\s/.test(char)) {
       if (current) {
         if (redirectType) {
           redirects.push({
@@ -274,7 +280,7 @@ function parseCommandLine(line: string): ParsedCommand {
             file: current,
           });
           redirectType = null;
-        }else{
+        } else {
           tokens.push(current);
         }
         current = "";
@@ -301,13 +307,13 @@ function parseCommandLine(line: string): ParsedCommand {
     }
   }
 
-  if (redirectType){
-    console.log("syntax error: expected file after >")
+  if (redirectType) {
+    console.log("syntax error: expected file after >");
     return { command: "", args: [], redirects: [] };
   }
 
-  return { 
-    command: tokens[0] ?? "", 
+  return {
+    command: tokens[0] ?? "",
     args: tokens.slice(1),
     redirects,
   };
