@@ -20,3 +20,12 @@ export function loadHistoryFromFile(path: string): void {
     console.log(`history: ${path}: ${err.message}`);
   }
 }
+
+export function writeHistoryToFile(path: string): void {
+  try {
+    const content = history.join("\n") + (history.length > 0 ? "\n" : "");
+    fs.writeFileSync(path, content);
+  } catch (err: any) {
+    console.log(`history: ${path}: ${err.message}`);
+  }
+}
