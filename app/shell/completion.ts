@@ -96,14 +96,18 @@ export function longestCommonPrefix(strings: string[]): string {
 
 export function getFileMatches(prefix: string): { matches: string[]; dir: string; base: string } {
   const lastSlash = prefix.lastIndexOf("/");
-  const dir = lastSlash === -1 ? "." : prefix.slice(0, lastSlash + 1);
+
+  // displayDir is what gets prepended to the matched filename (empty if no "/" was typed)
+  const displayDir = lastSlash === -1 ? "" : prefix.slice(0, lastSlash + 1);
+  // searchDir is the actual directory to scan with readdirSync
+  const searchDir = lastSlash === -1 ? "." : prefix.slice(0, lastSlash + 1);
   const base = lastSlash === -1 ? prefix : prefix.slice(lastSlash + 1);
 
   let entries: string[];
   try {
-    entries = fs.readdirSync(dir === "" ? "." : dir);
+    entries = fs.readdirSync(searchDir);
   } catch {
-    return { matches: [], dir, base };
+    return { matches: [], dir: displayDir, base };
   }
 
   const matches: string[] = [];
@@ -111,14 +115,14 @@ export function getFileMatches(prefix: string): { matches: string[]; dir: string
     if (!entry.startsWith(base)) continue;
     if (entry.startsWith(".") && !base.startsWith(".")) continue;
 
-    const fullPath = (dir === "." ? "" : dir) + entry;
+    const fullPath = searchDir === "." ? entry : searchDir + entry;
     let isDir = false;
     try {
       isDir = fs.statSync(fullPath).isDirectory();
     } catch {}
 
-    matches.push(dir + entry + (isDir ? "/" : ""));
+    matches.push(displayDir + entry + (isDir ? "/" : ""));
   }
 
-  return { matches: matches.sort(), dir, base };
+  return { matches: matches.sort(), dir: displayDir, base };
 }
