@@ -4,12 +4,13 @@ import { getHistory } from "../shell/history";
 export const history: Builtin = {
   minArgs: 0,
   maxArgs: 1,
-  execute: ([num]) => {
+  execute: (args) => {
     const entries = getHistory();
 
     let startIndex = 0;
-    if (num.length === 1) {
-      const n = parseInt(num[0], 10);
+    if (args.length === 1) {
+      const num = args[0];
+      const n = parseInt(num, 10);
       if (!isNaN(n) && n > 0) {
         startIndex = Math.max(0, entries.length - n);
       }
