@@ -86,7 +86,7 @@ function executeCommand(parsed: ParsedCommand): void {
 }
 
 function completer(line:string): [string[], string] {
-  const completions = commands.map(cmd => cmd.name);
+  const completions = commands.map(cmd => cmd.name + " ");
   const hits = completions.filter((c) => c.startsWith(line));
   return [hits.length ? hits : completions, line];
 }
