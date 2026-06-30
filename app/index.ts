@@ -5,6 +5,7 @@ import { completer } from "./shell/completion";
 import { handleArgumentNumber } from "./builtins";
 import { executePipeline } from "./shell/executor";
 import { reapDoneJobs } from "./shell/jobs";
+import { addToHistory } from "./shell/history";
 
 export const rl = createInterface({
   input: process.stdin,
@@ -17,10 +18,10 @@ reapDoneJobs();
 rl.prompt();
 
 rl.on("line", async (line) => {
-
+  addToHistory(line);
   const pipeline = parseCommandLine(line);
 
-  if (!pipeline) {
+  if (!pipeline || pipeline.stages.length === 0) {
     reapDoneJobs();
     rl.prompt();
     return;
