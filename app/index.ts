@@ -16,7 +16,7 @@ export const rl = createInterface({
 reapDoneJobs();
 rl.prompt();
 
-rl.on("line", (line) => {
+rl.on("line", async (line) => {
 
   const pipeline = parseCommandLine(line);
 
@@ -32,10 +32,8 @@ rl.on("line", (line) => {
     return;
   }
 
-  executePipeline(pipeline);
+  await executePipeline(pipeline);
 
-  setImmediate(() => {
-    reapDoneJobs();
-    rl.prompt();
-  });
+  reapDoneJobs();
+  rl.prompt();
 });
