@@ -1,5 +1,7 @@
 import { createInterface } from "readline";
 import os from "os";
+import fs from "fs";
+import child_process from "child_process";
 
 const rl = createInterface({
   input: process.stdin,
@@ -8,10 +10,10 @@ const rl = createInterface({
   completer: completer,
 });
 
-type Command = {
-  name: string;
+type Builtin = {
   minArgs: number;
   maxArgs: number | null;
+  execute(args: string[], redirects: Redirect[]): void;
 }
 
 type Redirect = {
@@ -26,14 +28,48 @@ type ParsedCommand = {
   redirects: Redirect[];
 }
 
-const commands: Command[] = [
-  { name: "exit", minArgs: 0, maxArgs: 0 },
-  { name: "echo", minArgs: 1, maxArgs: null },
-  { name: "type", minArgs: 1, maxArgs: 1 },
-  { name: "pwd", minArgs: 0, maxArgs: 0 },
-  { name: "cd", minArgs: 0, maxArgs: 1 },
-];
+const builtins: Record<string, Builtin> = {
+  exit:{
+    minArgs: 0,
+    maxArgs: 0,
+    execute: () => {
+      rl.close();
+      process.exit(0);
+    }
+  },
 
+  echo: {
+    minArgs: 1,
+    maxArgs: null,
+    execute: (args, redirects) => {
+      handleEchoCommand(args, redirects);
+    }
+  },
+
+  type: {
+    minArgs: 1,
+    maxArgs: 1,
+    execute: (args) => {
+      handleTypeCommand(args);
+    }
+  },
+
+  pwd: {
+    minArgs: 0,
+    maxArgs: 0,
+    execute: () => {
+      console.log(process.cwd());
+    }
+  },
+
+  cd: {
+    minArgs: 0,
+    maxArgs: 1,
+    execute: (args) => {
+      handleCdCommand(args);
+    }
+  }
+}
 rl.prompt();
 
 rl.on("line", (line) => {
@@ -56,50 +92,32 @@ rl.on("line", (line) => {
 });
 
 function executeCommand(parsed: ParsedCommand): void {
-  const { command, args, redirects } = parsed;
+  const builtin = builtins[parsed.command];
 
-  switch (command) {
-    case "exit":
-      rl.close();
-      process.exit(0);
-
-    case "echo":
-      handleEchoCommand(args, redirects);
-      break;
-
-    case "type":
-      handleTypeCommand(args);
-      break;
-
-    case "pwd":
-      console.log(process.cwd());
-      break;
-
-    case "cd":
-      handleCdCommand(args);
-      break;
-
-    default:
-      runExternalCommand(command, args, redirects);
-      break;
+  if (builtin) {
+    builtin.execute(parsed.args, parsed.redirects);
+  } else {
+    runExternalCommand(parsed.command, parsed.args, parsed.redirects);
   }
 }
 
 function completer(line:string): [string[], string] {
-  const completions = commands.map(cmd => cmd.name + " ");
-  const hits = completions.filter((c) => c.startsWith(line));
+  const builtinMatches = Object.keys(builtins).filter(name => name.startsWith(line));
+  const pathMatches = getExecutablesInPath(line);
 
-  if (hits.length === 0) {
+  const allMatches = Array.from(new Set([...builtinMatches, ...pathMatches])).sort();
+
+  if (allMatches.length === 0) {
     process.stdout.write("\x07"); // bell character
     return [[], line];
   }
 
-  return [hits.length ? hits : completions, line];
+  const completions = allMatches.map(name => name + " ");
+  return [completions, line];
 }
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
   const output = args.join(" ");
-  const fs = require("fs");
 
   const stdoutRedirect = redirects.find(r => r.type === "stdout");
   const stderrRedirect = redirects.find(r => r.type === "stderr");
@@ -136,35 +154,20 @@ function handleCdCommand(args: string[]): void {
 }
 
 function handleTypeCommand(args: string[]): void {
-  if (commands.some((cmd) => cmd.name === args[0])) {
-    console.log(`${args[0]} is a shell builtin`)
+  if (args[0] in builtins) {
+    console.log(`${args[0]} is a shell builtin`);
     return;
   }
-  if (!process.env.PATH) {
-    console.log("PATH environment variable is not set");
+  
+  const executable = findExecutableInPath(args[0]);
+  if (executable) {
+    console.log(`${args[0]} is ${executable}`);
     return;
   }
-
-  const pathDirs: string[] = process.env.PATH.split(":");
-  let found: boolean = false;
-  for (const dir of pathDirs) {
-    const commandPath: string = `${dir}/${args[0]}`;
-    try {
-      require("fs").accessSync(commandPath, require("fs").constants.X_OK);
-      console.log(`${args[0]} is ${commandPath}`);
-      found = true;
-      break;
-    } catch (err: any) {
-      // command not found in this directory, continue searching
-    }
-  }
-  if (!found) {
-    console.log(`${args[0]}: not found`);
-  }
+  console.log(`${args[0]}: not found`);
 }
 
 function buildStdio(redirects: Redirect[]): ["inherit" | number, "inherit" | number, "inherit" | number] {
-  const fs = require("fs");
   const stdio: ("inherit" | number)[] = ["inherit", "inherit", "inherit"];
 
   for (const redirect of redirects) {
@@ -182,11 +185,10 @@ function buildStdio(redirects: Redirect[]): ["inherit" | number, "inherit" | num
 }
 
 function runExternalCommand(command: string, args: string[], redirects: Redirect[]): void {
-  const fs = require("fs");
   const stdio = buildStdio(redirects);
 
   try {
-    require("child_process").execFileSync(command, args, { stdio });
+    child_process.execFileSync(command, args, { stdio });
   } catch (err: any) {
     if (err.code === "ENOENT") {
       console.log(`${command}: command not found`);
@@ -205,9 +207,58 @@ function runExternalCommand(command: string, args: string[], redirects: Redirect
   }
 }
 
+function findExecutableInPath(command: string): string | null {
+  if (!process.env.PATH) {
+    return null;
+  }
+
+  const pathDirs: string[] = process.env.PATH.split(":");
+  for (const dir of pathDirs) {
+    const commandPath: string = `${dir}/${command}`;
+    try {
+      fs.accessSync(commandPath, fs.constants.X_OK);
+      return commandPath;
+    } catch (err: any) {
+      // command not found in this directory, continue searching
+    }
+  }
+  return null;
+}
+
+function getExecutablesInPath(prefix = ""): string[] {
+  if (!process.env.PATH) {
+    return [];
+  }
+
+  const executables = new Set<string>();
+
+  for (const dir of process.env.PATH.split(":")) {
+    let entries: string[];
+
+    try {
+      entries = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!entry.startsWith(prefix)) {
+        continue;
+      }
+
+      try {
+        fs.accessSync(`${dir}/${entry}`, fs.constants.X_OK);
+        executables.add(entry);
+      } catch {}
+    }
+  }
+
+  return [...executables].sort();
+}
+
 function handleArgumentNumber(command: string, args: string[]): boolean {
   // Tell if builtin command has too many or too few arguments
-  const cmd = commands.find((cmd) => cmd.name === command);
+  const cmd = builtins[command];
 
   if (!cmd) return true; // Not a builtin command, let the OS handle it
 
