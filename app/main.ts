@@ -79,17 +79,8 @@ function executeCommand(parsed: ParsedCommand): void {
       break;
 
     default:
-      try {
-        require("child_process").execFileSync(
-          command,
-          args,
-          {
-            stdio: "inherit",
-          }
-        );
-      } catch (err) {
-        console.log(`${command}: command not found`);
-      }
+      runExternalCommand(command, args, redirects);
+      break;
   }
 }
 
@@ -148,6 +139,48 @@ function handleTypeCommand(args: string[]): void {
   }
   if (!found) {
     console.log(`${args[0]}: not found`);
+  }
+}
+
+function buildStdio(redirects: Redirect[]): ["inherit" | number, "inherit" | number, "inherit" | number] {
+  const fs = require("fs");
+  const stdio: ("inherit" | number)[] = ["inherit", "inherit", "inherit"];
+
+  for (const redirect of redirects) {
+    const flag = redirect.append ? "a" : "w";
+    if (redirect.type === "stdout") {
+      const fd = fs.openSync(redirect.file, flag);
+      stdio[1] = fd;
+    } else if (redirect.type === "stderr") {
+      const fd = fs.openSync(redirect.file, flag);
+      stdio[2] = fd;
+    }
+  }
+
+  return stdio as ["inherit" | number, "inherit" | number, "inherit" | number];
+}
+
+function runExternalCommand(command: string, args: string[], redirects: Redirect[]): void {
+  const fs = require("fs");
+  const stdio = buildStdio(redirects);
+
+  try {
+    require("child_process").execFileSync(command, args, { stdio });
+  } catch (err: any) {
+    if (err.code === "ENOENT") {
+      console.log(`${command}: command not found`);
+    } else if (err.status !== undefined) {
+      // The command was found but exited with a non-zero status code
+    } else {
+      console.log(`${command}: command not found`);
+    }
+  } finally {
+    // close the file descriptors if they were opened
+    for (const fd of stdio) {
+      if (typeof fd === "number") {
+        try { fs.closeSync(fd); } catch {}
+      }
+    }
   }
 }
 
