@@ -86,20 +86,28 @@ function executeCommand(parsed: ParsedCommand): void {
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
   const output = args.join(" ");
-  if (redirects.length > 0) {
-    const redirect = redirects[0];
-    const fs = require("fs");
+  const fs = require("fs");
+
+  const stdoutRedirect = redirects.find(r => r.type === "stdout");
+  const stderrRedirect = redirects.find(r => r.type === "stderr");
+
+  if (stderrRedirect) {
     try {
-      if (redirect.type === "stdout") {
-        fs.writeFileSync(redirect.file, output + "\n", { flag: redirect.append ? "a" : "w" });
-      }
+      fs.writeFileSync(stderrRedirect.file, "", { flag: stderrRedirect.append ? "a" : "w" });
     } catch (err: any) {
-      console.log(`Error writing to file ${redirect.file}: ${err.message}`);
+      console.log(`Error writing to file ${stderrRedirect.file}: ${err.message}`);
     }
-    return;
   }
 
-  console.log(output);
+  if (stdoutRedirect) {
+    try {
+      fs.writeFileSync(stdoutRedirect.file, output + "\n", { flag: stdoutRedirect.append ? "a" : "w" });
+    } catch (err: any) {
+      console.log(`Error writing to file ${stdoutRedirect.file}: ${err.message}`);
+    }
+  } else {
+    console.log(output);
+  }
 }
 
 function handleCdCommand(args: string[]): void {
