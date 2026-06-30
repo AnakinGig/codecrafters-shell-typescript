@@ -71,6 +71,7 @@ export function completer(line: string): [string[], string] {
   process.stdout.write("\n" + displayList.join("  ") + "\n");
   rl.prompt();
   (rl as any).line = line;
+  (rl as any).cursor = line.length;
   (rl as any)._refreshLine?.();
   lastCompletionLine = null;
 
