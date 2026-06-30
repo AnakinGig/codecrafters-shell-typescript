@@ -1,10 +1,13 @@
 import { ChildProcess } from "child_process";
 
+export type JobStatus = "running" | "done";
+
 export type Job = {
   id: number;
   pid: number;
   process: ChildProcess;
   command: string;
+  status: JobStatus;
 };
 
 const jobs: Job[] = [];
@@ -16,13 +19,13 @@ export function addJob(process: ChildProcess, command: string): Job {
     pid: process.pid!,
     process,
     command,
+    status: "running"
   };
   jobs.push(job);
 
   // Clean up from the list once the process exits
   process.on("exit", () => {
-    const index = jobs.findIndex(j => j.id === job.id);
-    if (index !== -1) jobs.splice(index, 1);
+    job.status = "done";
   });
 
   return job;
@@ -30,4 +33,11 @@ export function addJob(process: ChildProcess, command: string): Job {
 
 export function listJobs(): Job[] {
   return jobs;
+}
+
+export function removeJob(id: number): void {
+  const index = jobs.findIndex(job => job.id === id);
+  if (index !== -1) {
+    jobs.splice(index, 1);
+  }
 }
