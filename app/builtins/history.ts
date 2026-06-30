@@ -1,5 +1,5 @@
 import { type Builtin } from "../shell/types";
-import { getHistory, loadHistoryFromFile, writeHistoryToFile } from "../shell/history";
+import { getHistory, loadHistoryFromFile, writeHistoryToFile, appendHistoryToFile } from "../shell/history";
 import { executeWithFlags } from "../shell/flags";
 
 export const history: Builtin = {
@@ -14,6 +14,12 @@ export const history: Builtin = {
       argCount: 1,
       handler: ([path]) => {
         writeHistoryToFile(path);
+      }
+    },
+    "-a": {
+      argCount: 1,
+      handler: ([path]) => {
+        appendHistoryToFile(path);
       }
     }
   },
