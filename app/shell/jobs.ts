@@ -11,11 +11,10 @@ export type Job = {
 };
 
 const jobs: Job[] = [];
-let nextJobId = 1;
 
 export function addJob(process: ChildProcess, command: string): Job {
   const job: Job = {
-    id: nextJobId++,
+    id: allocateJobId(),
     pid: process.pid!,
     process,
     command,
@@ -54,6 +53,11 @@ export function refreshJobStatuses(): void {
       job.status = "done";
     }
   }
+}
+
+function allocateJobId(): number {
+  if (jobs.length === 0) return 1;
+  return jobs[jobs.length - 1].id + 1;
 }
 
 // Used by the automatic pre-prompt hook: prints Done jobs and removes them.
