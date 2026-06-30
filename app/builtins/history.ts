@@ -1,5 +1,5 @@
 import { type Builtin } from "../shell/types";
-import { getHistory, loadHistoryFromFile } from "../shell/history";
+import { getHistory, loadHistoryFromFile, writeHistoryToFile } from "../shell/history";
 import { executeWithFlags } from "../shell/flags";
 
 export const history: Builtin = {
@@ -9,10 +9,15 @@ export const history: Builtin = {
       handler: ([path]) => {
         loadHistoryFromFile(path);
       }
+    },
+    "-w": {
+      argCount: 1,
+      handler: ([path]) => {
+        writeHistoryToFile(path);
+      }
     }
   },
   execute: (args) => {
-    // No flag: plain `history` or `history <n>`
     if (args.length === 0 || /^\d+$/.test(args[0])) {
       const entries = getHistory();
 
@@ -31,7 +36,6 @@ export const history: Builtin = {
       return;
     }
 
-    // Otherwise, dispatch to flags (-r, etc.)
     executeWithFlags("history", args, history.flags!);
   }
 };
