@@ -5,6 +5,7 @@ const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
   prompt: "$ ",
+  completer: completer,
 });
 
 type Command = {
@@ -82,6 +83,12 @@ function executeCommand(parsed: ParsedCommand): void {
       runExternalCommand(command, args, redirects);
       break;
   }
+}
+
+function completer(line:string): [string[], string] {
+  const completions = commands.map(cmd => cmd.name);
+  const hits = completions.filter((c) => c.startsWith(line));
+  return [hits.length ? hits : completions, line];
 }
 
 function handleEchoCommand(args: string[], redirects: Redirect[]): void {
