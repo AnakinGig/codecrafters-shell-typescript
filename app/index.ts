@@ -34,6 +34,8 @@ rl.on("line", (line) => {
 
   executePipeline(pipeline);
 
-  reapDoneJobs();
-  rl.prompt();
+  setImmediate(() => {
+    reapDoneJobs();
+    rl.prompt();
+  });
 });
